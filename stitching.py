@@ -30,8 +30,33 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     # Load & normalize input imgs
     img1 = imgs[keys[0]].float() / 255.0
     img2 = imgs[keys[1]].float() / 255.0
+
+    # make batches
+    img1_b = img1.unsqueeze(0)#1x C x H x W
+    img2_b = img2.unsqueeze(0)
+
+    #grayscale
+    img1_gray = K.color.rgb_to_grayscale(img1_b)
+    img2_gray = K.color.rgb_to_grayscale(img2_b)
+
+    detector = K.feature.KeyNetAffNetHardNet(num_features=2048, upright=True)
+    # get the keypoint and the detectors
+    with torch.no_grad():
+        kp1, desc1 = detector(img1_gray)
+        kp2, desc2 = detector(img2_gray)
     
-    pass
+    print(kp1)
+
+
+    desc1 = desc1.squeeze(0)
+    desc2 = desc2.squeeze(0)
+
+    _, idxs = K.feature.match_smnn(desc1, desc2, th=0.95)
+
+    pts1 = kp1.squeeze(0)[idxs[:, 0]]
+    pts2 = kp2.squeeze(0)[idxs[:, 1]]
+
+    print('Points 1:', pts1)
 
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
