@@ -25,8 +25,13 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     img = torch.zeros((3, 256, 256)) # assumed 256*256 resolution. Update this as per your logic.
 
     #TODO: Add your code here. Do not modify the return and input arguments.
+    keys = list(imgs.keys())
+
+    # Load & normalize input imgs
+    img1 = imgs[keys[0]].float() / 255.0
+    img2 = imgs[keys[1]].float() / 255.0
     
-    return img
+    pass
 
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
