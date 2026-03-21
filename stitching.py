@@ -56,7 +56,10 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     pts1 = kp1.squeeze(0)[idxs[:, 0]]
     pts2 = kp2.squeeze(0)[idxs[:, 1]]
 
-    print('Points 1:', pts1)
+    pts1 = pts1.unsqueeze(0)
+    pts2 = pts2.unsqueeze(0)
+
+    H, _ = K.geometry.find_homography_dlt_iterated(pts1, pts2,n_iter=100)
 
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
