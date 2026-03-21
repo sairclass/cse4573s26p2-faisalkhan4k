@@ -35,15 +35,15 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     img1_b = img1.unsqueeze(0)#1x C x H x W
     img2_b = img2.unsqueeze(0)
 
-    #grayscale
+    #grayscale 
     img1_gray = K.color.rgb_to_grayscale(img1_b)
     img2_gray = K.color.rgb_to_grayscale(img2_b)
 
     detector = K.feature.KeyNetAffNetHardNet(num_features=2048, upright=True)
     # get the keypoint and the detectors
     with torch.no_grad():
-        kp1, desc1 = detector(img1_gray)
-        kp2, desc2 = detector(img2_gray)
+        kp1,_, desc1 = detector(img1_gray)
+        kp2,_, desc2 = detector(img2_gray)
     
     print(kp1)
 
