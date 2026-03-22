@@ -133,9 +133,9 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     canvas += blend
 
 
-    result = (canvas.clamp(0, 1) * 255).byte().cpu()
+    img = (canvas.clamp(0, 1) * 255).byte().cpu()
 
-    return result
+    return img
     
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
@@ -150,5 +150,10 @@ def panorama(imgs: Dict[str, torch.Tensor]):
     overlap = torch.empty((3, 256, 256)) # assumed empty 256*256 overlap. Update this as per your logic.
 
     #TODO: Add your code here. Do not modify the return and input arguments.
+
+    keys = list(imgs.keys())
+    N = len(keys)
+    # normalize
+    images = [imgs[k].float() / 255.0 for k in keys]
 
     return img, overlap
