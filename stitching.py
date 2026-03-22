@@ -53,24 +53,25 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
 
     _, idxs = K.feature.match_smnn(desc1, desc2, th=0.95)
 
-    pts1 = kp1.squeeze(0)[idxs[:, 0]]
-    pts2 = kp2.squeeze(0)[idxs[:, 1]]
+    pts1 = K.feature.get_laf_center(kp1).squeeze(0)  
+    pts2 = K.feature.get_laf_center(kp2).squeeze(0) 
 
-    pts1 = pts1.unsqueeze(0)
-    pts2 = pts2.unsqueeze(0)
+    pts1 = pts1[idxs[:, 0]].unsqueeze(0)  
+    pts2 = pts2[idxs[:, 1]].unsqueeze(0)  
 
-    H, _ = K.geometry.find_homography_dlt_iterated(pts1, pts2,n_iter=100,weights=None)
+
+    H = K.geometry.find_homography_dlt_iterated(pts1, pts2,n_iter=100,weights=None)
 
     _, _, H2, W2 = img2_b.shape
     _, _, H1, W1 = img1_b.shape
 
-    corners1 = torch.tensor([[0, 0, 1],[W1, 0, 1],[0, H1, 1],[W1, H1, 1]]).T
+    corners1 = torch.tensor([[0, 0, 1],[W1, 0, 1],[0, H1, 1],[W1, H1, 1]],dtype=torch.float32).T
 
     H_mat = H.squeeze(0)
     warped = H_mat @ corners1
     warped = warped[:2] / warped[2]
 
-    corners2 = torch.tensor([[0, 0],[W2, 0],[0, H2],[W2, H2]])
+    corners2 = torch.tensor([[0, 0],[W2, 0],[0, H2],[W2, H2]],dtype=torch.float32)
 
 
     # all the points
@@ -124,6 +125,18 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     score1 = (img1_w - blur1).abs().mean(dim=0)
     score2 = (img2_w - blur2).abs().mean(dim=0)
 
+
+    use1 = (score1 <= score2).float()
+    use2 = 1 - use1
+
+    blend = (img1_w * use1.unsqueeze(0) + img2_w * use2.unsqueeze(0)) * overlap.unsqueeze(0)
+
+    canvas += blend
+
+
+    result = (canvas.clamp(0, 1) * 255).byte().cpu()
+
+    return result
     
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
