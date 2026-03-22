@@ -91,6 +91,40 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     img1_warped = K.geometry.warp_perspective(img1_b, H_combined.unsqueeze(0), (out_h, out_w))
     img2_warped = K.geometry.warp_perspective(img2_b, T.unsqueeze(0), (out_h, out_w))
 
+    
+
+    ones1 = torch.ones_like(img1_b[:, :1])
+    ones2 = torch.ones_like(img2_b[:, :1])
+
+
+    mask1 = K.geometry.warp_perspective(ones1, H_combined.unsqueeze(0), (out_h, out_w))
+
+    mask2 = K.geometry.warp_perspective(ones2, T.unsqueeze(0), (out_h, out_w))
+
+
+
+
+    mask1 = (mask1 > 0.5).float().squeeze()
+    mask2 = (mask2 > 0.5).float().squeeze()
+    overlap = mask1 * mask2
+
+
+    img1_w = img1_warped.squeeze(0)
+    img2_w = img2_warped.squeeze(0)
+
+    canvas = torch.zeros_like(img1_w)
+
+    canvas += img1_w * (mask1 * (1 - mask2)).unsqueeze(0)
+    canvas += img2_w * (mask2 * (1 - mask1)).unsqueeze(0)
+
+
+    blur1 = K.filters.gaussian_blur2d(img1_warped, (21, 21), (5.0, 5.0)).squeeze(0)
+    blur2 = K.filters.gaussian_blur2d(img2_warped, (21, 21), (5.0, 5.0)).squeeze(0)
+
+    score1 = (img1_w - blur1).abs().mean(dim=0)
+    score2 = (img2_w - blur2).abs().mean(dim=0)
+
+    
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
     """
