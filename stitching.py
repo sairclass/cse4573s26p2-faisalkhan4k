@@ -45,7 +45,6 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
         kp1,_, desc1 = detector(img1_gray)
         kp2,_, desc2 = detector(img2_gray)
     
-    print(kp1)
 
 
     desc1 = desc1.squeeze(0)
