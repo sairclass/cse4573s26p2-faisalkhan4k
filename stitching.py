@@ -59,7 +59,37 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     pts1 = pts1.unsqueeze(0)
     pts2 = pts2.unsqueeze(0)
 
-    H, _ = K.geometry.find_homography_dlt_iterated(pts1, pts2,n_iter=100)
+    H, _ = K.geometry.find_homography_dlt_iterated(pts1, pts2,n_iter=100,weights=None)
+
+    _, _, H2, W2 = img2_b.shape
+    _, _, H1, W1 = img1_b.shape
+
+    corners1 = torch.tensor([[0, 0, 1],[W1, 0, 1],[0, H1, 1],[W1, H1, 1]]).T
+
+    H_mat = H.squeeze(0)
+    warped = H_mat @ corners1
+    warped = warped[:2] / warped[2]
+
+    corners2 = torch.tensor([[0, 0],[W2, 0],[0, H2],[W2, H2]])
+
+
+    # all the points
+    all_pts = torch.cat([warped.T, corners2], dim=0)
+
+    min_xy = all_pts.min(dim=0).values
+    max_xy = all_pts.max(dim=0).values
+
+    out_w = int((max_xy[0] - min_xy[0]).clamp(max=4000))
+    out_h = int((max_xy[1] - min_xy[1]).clamp(max=4000))
+
+    T = torch.eye(3,3)
+    T[0, 2] = -min_xy[0]
+    T[1, 2] = -min_xy[1]
+
+    H_combined = T @ H_mat
+
+    img1_warped = K.geometry.warp_perspective(img1_b, H_combined.unsqueeze(0), (out_h, out_w))
+    img2_warped = K.geometry.warp_perspective(img2_b, T.unsqueeze(0), (out_h, out_w))
 
 # ------------------------------------ Task 2 ------------------------------------ #
 def panorama(imgs: Dict[str, torch.Tensor]):
