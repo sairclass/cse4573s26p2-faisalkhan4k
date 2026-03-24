@@ -173,4 +173,46 @@ def panorama(imgs: Dict[str, torch.Tensor]):
             all_pts.append(pts)
             all_descs.append(desc.squeeze(0))
 
+    
+
+    overlap = torch.eye(N, dtype=torch.float32)
+    homographies = {}
+
+    MIN_MATCHES = 20 # 5,10,20 
+
+    MATCH_RATIO = 0.95
+
+
+    for i in range(N):
+
+
+        for j in range(i + 1, N):
+            _, idxs = K.feature.match_smnn(all_descs[i], all_descs[j], th=MATCH_RATIO)
+            if idxs.shape[0] < MIN_MATCHES:
+                continue
+
+            p_i =  all_pts[i][idxs[:, 0]].unsqueeze(0)
+            pts_j = all_pts[j][idxs[:, 1]].unsqueeze(0)
+
+
+            try:
+                H_ij, _ =K.geometry.find_homography_dlt_iterated(p_i, pts_j, n_iter=100, weights=None)
+                H_ji , _ =K.geometry.find_homography_dlt_iterated(pts_j, p_i, n_iter=100,weights=None)
+            except:
+                continue
+
+            H_ij = H_ij.squeeze(0)
+            H_ji =   H_ji.squeeze(0)
+
+            overlap[i, j] =overlap[j, i] = 1.0
+
+            homographies.setdefault(i, {})[j] = H_ij
+            homographies.setdefault(j, {})[i] = H_ji
+
+
+
+
+
+
+
     return img, overlap
