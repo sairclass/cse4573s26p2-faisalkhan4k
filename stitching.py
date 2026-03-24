@@ -153,7 +153,24 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
     keys = list(imgs.keys())
     N = len(keys)
+
+
     # normalize
     images = [imgs[k].float() / 255.0 for k in keys]
+
+
+    detector = K.feature.KeyNetAffNetHardNet(num_features=2048, upright=True)
+    detector.eval()
+
+
+    all_pts, all_descs = [], []
+    with torch.no_grad():
+        for img in images:
+            gray = K.color.rgb_to_grayscale(img.unsqueeze(0))
+            l, _, desc = detector(gray)
+
+            pts = K.feature.get_laf_center(l).squeeze(0)
+            all_pts.append(pts)
+            all_descs.append(desc.squeeze(0))
 
     return img, overlap
