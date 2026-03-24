@@ -210,7 +210,58 @@ def panorama(imgs: Dict[str, torch.Tensor]):
             homographies.setdefault(j, {})[i] = H_ji
 
 
+    rf_index = max(range(N), key=lambda i: overlap[i].sum().item())
 
+
+
+
+    H_global  = {rf_index: torch.eye(3, dtype=torch.float32)}
+    visited ={rf_index}
+    queue =[rf_index]
+
+    while queue:
+        
+        current = queue.pop(0)
+
+        for nei in homographies.get(current, {}):
+            if nei in visited:
+
+                continue
+
+
+            H_global[nei] =   H_global[current] @ homographies[nei][current]
+            visited.add(nei)
+            queue.append(nei)
+
+    reachable = list(H_global.keys())
+
+
+
+    all_corners = []
+
+    for i in reachable:
+        _, H_i, W_i = images[i].shape
+
+        corners = torch.tensor([[0, 0, 1],[W_i, 0, 1],[0, H_i, 1],[W_i, H_i, 1]]).T
+
+        proj =   H_global[i]@corners
+
+
+        proj= (proj[:2] /  proj[2])
+
+        all_corners.append(proj.T)
+
+    all_corners = torch.cat(all_corners)
+
+    min_xy = all_corners.min(0).values
+    max_xy=all_corners.max(0).values
+
+
+
+    out_w = int((max_xy[0] - min_xy[0]).clamp(max=6000))
+
+
+    out_h = int((max_xy[1] - min_xy[1]).clamp(max=6000))
 
 
 
