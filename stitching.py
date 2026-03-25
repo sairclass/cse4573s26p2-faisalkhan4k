@@ -279,7 +279,8 @@ def panorama(imgs: Dict[str, torch.Tensor]):
     unit_mask = torch.ones((1, 1, out_h, out_w))
 
     for i in reachable:
-        H_final =T@H_global[i]
+
+        H_final=(T @ H_global[i]).unsqueeze(0)
 
 
         warped = K.geometry.warp_perspective
@@ -291,10 +292,10 @@ def panorama(imgs: Dict[str, torch.Tensor]):
         ones=torch.ones((1, 1, Hi, Wi))
         mask=K.geometry.warp_perspective(ones, H_final.unsqueeze(0), (out_h, out_w))
 
-        canvas+= warped.squeeze(0)
 
+        canvas += warped.squeeze(0) * mask.squeeze(0)
+        weight_map += mask.squeeze(0)
 
-        weight_map+=(warped.squeeze(0) > 0).float()
 
         
     # minimum value of the weight map is 1
