@@ -39,7 +39,7 @@ def stitch_background(imgs: Dict[str, torch.Tensor]):
     img1_gray = K.color.rgb_to_grayscale(img1_b)
     img2_gray = K.color.rgb_to_grayscale(img2_b)
 
-    detector = K.feature.KeyNetAffNetHardNet(num_features=2048, upright=True)
+    detector = K.feature.KeyNetAffNetHardNet(num_features=4000, upright=True)
     # get the keypoint and the detectors
     with torch.no_grad():
         kp1,_, desc1 = detector(img1_gray)
@@ -159,7 +159,7 @@ def panorama(imgs: Dict[str, torch.Tensor]):
     images = [imgs[k].float() / 255.0 for k in keys]
 
 
-    detector = K.feature.KeyNetAffNetHardNet(num_features=2048, upright=True)
+    detector = K.feature.KeyNetAffNetHardNet(num_features=4000, upright=True)
     detector.eval()
 
 
@@ -173,14 +173,13 @@ def panorama(imgs: Dict[str, torch.Tensor]):
             all_pts.append(pts)
             all_descs.append(desc.squeeze(0))
 
-    
 
     overlap = torch.eye(N, dtype=torch.float32)
-    homographies = {}
+    homographies = {i: {} for i in range(N)}
 
-    MIN_MATCHES = 20 # 5,10,20 
+    MIN_MATCHES = 8 # 5,10,20 
 
-    MATCH_RATIO = 0.95
+    MATCH_RATIO = 0.9
 
 
     for i in range(N):
@@ -196,8 +195,8 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
 
             try:
-                H_ij, _ =K.geometry.find_homography_dlt_iterated(p_i, pts_j, n_iter=100, weights=None)
-                H_ji , _ =K.geometry.find_homography_dlt_iterated(pts_j, p_i, n_iter=100,weights=None)
+                H_ij =K.geometry.find_homography_dlt_iterated(p_i, pts_j, n_iter=100, weights=None).squeeze(0)
+                H_ji = torch.linalg.inv(H_ij)
             except:
                 continue
 
@@ -206,12 +205,13 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
             overlap[i, j] =overlap[j, i] = 1.0
 
-            homographies.setdefault(i, {})[j] = H_ij
-            homographies.setdefault(j, {})[i] = H_ji
+            homographies[i][j] = H_ij
+            homographies[j][i] = H_ji
 
 
-    rf_index = max(range(N), key=lambda i: overlap[i].sum().item())
 
+    overlap_counts = [int(overlap[i].sum().item()) - 1 for i in range(N)]
+    rf_index = overlap_counts.index(max(overlap_counts))
 
 
 
@@ -223,17 +223,19 @@ def panorama(imgs: Dict[str, torch.Tensor]):
         
         current = queue.pop(0)
 
-        for nei in homographies.get(current, {}):
+        for nei, H_current_to_neighbour in homographies.get(current, {}).items():
             if nei in visited:
 
                 continue
 
-
-            H_global[nei] =   H_global[current] @ homographies[nei][current]
+            H_neighbour_to_curr = torch.linalg.inv(H_current_to_neighbour)
+            H_global[nei] =   H_global[current] @H_neighbour_to_curr
             visited.add(nei)
             queue.append(nei)
 
     reachable = list(H_global.keys())
+
+
 
 
 
@@ -243,12 +245,12 @@ def panorama(imgs: Dict[str, torch.Tensor]):
         _, H_i, W_i = images[i].shape
 
         corners = torch.tensor([[0, 0, 1],[W_i, 0, 1],[0, H_i, 1],[W_i, H_i, 1]]).T
-        corners.to(dtype=torch.float32)
+        corners = corners.to(dtype=torch.float32)
 
         proj =   H_global[i]@corners
 
 
-        proj= (proj[:2] /  proj[2])
+        proj= (proj[:2] /  proj[2:3])
 
         all_corners.append(proj.T)
 
@@ -259,10 +261,10 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
 
 
-    out_w = int((max_xy[0] - min_xy[0]).clamp(max=6000))
+    out_w =int((max_xy[0] - min_xy[0]).clamp(max=6000).item())
 
 
-    out_h = int((max_xy[1] - min_xy[1]).clamp(max=6000))
+    out_h=int((max_xy[1] - min_xy[1]).clamp(max=6000).item())
 
 
 
@@ -276,26 +278,20 @@ def panorama(imgs: Dict[str, torch.Tensor]):
     weight_map =torch.zeros((1,  out_h,  out_w))
 
 
-    unit_mask = torch.ones((1, 1, out_h, out_w))
-
     for i in reachable:
+        H_final = (T @ H_global[i]).unsqueeze(0)
 
-        H_final=(T @ H_global[i]).unsqueeze(0)
+        warped = K.geometry.warp_perspective(images[i].unsqueeze(0), H_final, (out_h, out_w),mode='bilinear', align_corners=False)
 
+        _, Hi, Wi = images[i].shape
+        ones = torch.ones((1, 1, Hi, Wi))
 
-        warped = K.geometry.warp_perspective
-        (
-            images[i].unsqueeze(0), H_final.unsqueeze(0), (out_h, out_w)
-        )
+        mask = K.geometry.warp_perspective(ones, H_final, (out_h, out_w), mode='bilinear',align_corners=False)
 
-        _,Hi,Wi = images[i].shape
-        ones=torch.ones((1, 1, Hi, Wi))
-        mask=K.geometry.warp_perspective(ones, H_final.unsqueeze(0), (out_h, out_w))
-
+        mask = (mask > 0.5).float()
 
         canvas += warped.squeeze(0) * mask.squeeze(0)
         weight_map += mask.squeeze(0)
-
 
         
     # minimum value of the weight map is 1
