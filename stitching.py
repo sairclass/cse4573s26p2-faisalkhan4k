@@ -243,6 +243,7 @@ def panorama(imgs: Dict[str, torch.Tensor]):
         _, H_i, W_i = images[i].shape
 
         corners = torch.tensor([[0, 0, 1],[W_i, 0, 1],[0, H_i, 1],[W_i, H_i, 1]]).T
+        corners.to(dtype=torch.float32)
 
         proj =   H_global[i]@corners
 
