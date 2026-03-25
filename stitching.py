@@ -265,5 +265,31 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
 
 
+    T =     torch.eye(3) 
+    T[0 ,2] = (-min_xy[0])
+    T[1,2]= -min_xy[1]
+
+
+    canvas=torch.zeros((3,   out_h, out_w))
+
+    weight_map =torch.zeros((1,  out_h,  out_w))
+
+    
+    unit_mask = torch.ones((1, 1, out_h, out_w))
+
+    for i in reachable:
+        H_final =H_global[i]@T 
+
+
+        warped = K.geometry.warp_perspective
+        (
+            images[i].unsqueeze(0), H_final.unsqueeze(0), (out_h, out_w)
+        )
+        mask=K.geometry.warp_perspective(unit_mask, H_final, (out_h, out_w))
+
+        canvas+= warped.squeeze(0)
+
+
+        weight_map+=(warped.squeeze(0) > 0).float()
 
     return img, overlap
