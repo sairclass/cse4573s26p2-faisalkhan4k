@@ -274,7 +274,7 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
     weight_map =torch.zeros((1,  out_h,  out_w))
 
-    
+
     unit_mask = torch.ones((1, 1, out_h, out_w))
 
     for i in reachable:
@@ -292,4 +292,14 @@ def panorama(imgs: Dict[str, torch.Tensor]):
 
         weight_map+=(warped.squeeze(0) > 0).float()
 
-    return img, overlap
+        
+    # minimum value of the weight map is 1
+    canvas=canvas / weight_map.clamp(min=1.0)
+
+
+
+
+    result =    (canvas.clamp(0,1)*255).byte()
+
+
+    return result , overlap
