@@ -279,14 +279,17 @@ def panorama(imgs: Dict[str, torch.Tensor]):
     unit_mask = torch.ones((1, 1, out_h, out_w))
 
     for i in reachable:
-        H_final =H_global[i]@T 
+        H_final =T@H_global[i]
 
 
         warped = K.geometry.warp_perspective
         (
             images[i].unsqueeze(0), H_final.unsqueeze(0), (out_h, out_w)
         )
-        mask=K.geometry.warp_perspective(unit_mask, H_final, (out_h, out_w))
+
+        _,Hi,Wi = images[i].shape
+        ones=torch.ones((1, 1, Hi, Wi))
+        mask=K.geometry.warp_perspective(ones, H_final.unsqueeze(0), (out_h, out_w))
 
         canvas+= warped.squeeze(0)
 
